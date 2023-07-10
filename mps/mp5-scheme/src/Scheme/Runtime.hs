@@ -95,7 +95,8 @@ append vv = throwError $ UnexpectedArgs vv
 -- Examples:
 --   (eval '(+ 1 2 3))  => 6
 evalPrim :: [Val] -> EvalState Val
-evalPrim = const $ unimplemented "Primitive function `eval`"
+evalPrim xx | length xx == 1 = eval $ head xx
+            | otherwise = throwError $ UnexpectedArgs xx
 
 -- Primitive function `=`, throwing type error for mismatch
 -- `=` is a comparison operator for numbers and booleans
@@ -141,7 +142,10 @@ eq (x:xs) = return $ Boolean $ foldl (eq' x) True xs where
 -- or an empty list (null)
 -- TODO
 isList :: [Val] -> EvalState Val
-isList = const $ unimplemented "Primitive function `list?`"
+isList [v] = return . Boolean $ case flattenList v of
+                    List _ -> True
+                    _ -> False
+isList vv = throwError $ UnexpectedArgs vv
 
 -- Primitive function `symbol?` predicate
 isSymbol :: [Val] -> EvalState Val
@@ -152,24 +156,35 @@ isSymbol e =  throwError $ UnexpectedArgs e
 -- Primitive function `pair?` predicate
 -- TODO
 isPair :: [Val] -> EvalState Val
-isPair = const $ unimplemented "Primitive function `pair?`"
+isPair [x] = return . Boolean $ case flattenList x of
+  List x -> not (length x == 0)
+  DottedList ys y -> True
+  _ -> False
+isPair xx = throwError $ UnexpectedArgs xx
 
 -- Primitive function `number?` predicate
 -- TODO
 isNumber :: [Val] -> EvalState Val
-isNumber = const $ unimplemented "Primitive function `number?`"
+isNumber [Number _] = return $ Boolean True
+isNumber [_] = return $ Boolean False
+isNumber vv = throwError $ UnexpectedArgs vv
 
 -- Primitive function `boolean?` predicate
 -- TODO
 isBoolean :: [Val] -> EvalState Val
-isBoolean = const $ unimplemented "Primitive function `boolean?`"
+isBoolean [Boolean _] = return $ Boolean True
+isBoolean [_] = return $ Boolean False
+isBoolean vv = throwError $ UnexpectedArgs vv
 
 -- Primitive function `null?` predicate
 -- An empty list or its *equivalent* value is null
 -- Note: Think about what's equivalent
 -- TODO
 isNull :: [Val] -> EvalState Val
-isNull = const $ unimplemented "Primitive function `null?`"
+isNull [x] =  return . Boolean $ case flattenList x of
+                            List x -> (length x == 0)
+                            _      -> False
+isNull vv = throwError $ UnexpectedArgs vv
 
 --- ### Runtime
 
@@ -195,5 +210,12 @@ runtime = H.fromList [ ("+", liftIntVargOp (+) 0)
                      , ("list", PrimFunc list)
                      , ("append", PrimFunc append)
                      , ("symbol?", PrimFunc isSymbol)
-                     -- TODO: Insert more runtime bindings here
+                     , ("eval", PrimFunc evalPrim)
+                     , ("apply", PrimFunc applyPrim)
+                     , ("pair?", PrimFunc isPair)
+                     , ("number?", PrimFunc isNumber)
+                     , ("boolean?", PrimFunc isBoolean)
+                     , ("null?", PrimFunc isNull)
+                     , ("!=", liftCompOp (/=))
+                     , ("list?", PrimFunc isList)
                      ]
