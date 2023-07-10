@@ -69,11 +69,11 @@ eval v@(Boolean _) = return v
 
 -- Symbol evaluates to the value bound to it
 -- TODO
-eval (Symbol sym) = do
-  env <- get
-  case lookup sym env of
-    Just val -> return val
-    Nothing -> throwError $ UnboundSymbol sym
+eval (Symbol sym) = 
+  do env <- get
+     case H.lookup sym env of
+       Just val -> return val
+       Nothing -> throwError $ UndefSymbolError sym
 
 -- Function closure is also self-evaluating
 eval v@(Func _ _ _) = return v
