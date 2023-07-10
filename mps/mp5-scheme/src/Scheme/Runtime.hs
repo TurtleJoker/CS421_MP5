@@ -95,8 +95,7 @@ append vv = throwError $ UnexpectedArgs vv
 -- Examples:
 --   (eval '(+ 1 2 3))  => 6
 evalPrim :: [Val] -> EvalState Val
-evalPrim xx | length xx == 1 = eval $ head xx
-            | otherwise = throwError $ UnexpectedArgs xx
+evalPrim [Number x] = eval x
 
 -- Primitive function `=`, throwing type error for mismatch
 -- `=` is a comparison operator for numbers and booleans
@@ -142,9 +141,9 @@ eq (x:xs) = return $ Boolean $ foldl (eq' x) True xs where
 -- or an empty list (null)
 -- TODO
 isList :: [Val] -> EvalState Val
-isList [v] = return . Boolean $ case flattenList v of
-                    List _ -> True
-                    _ -> False
+isList [Number x] = case flattenList x of List _ -> return (Boolean True)
+                                   _ -> return (Boolean False)
+                                   
 isList vv = throwError $ UnexpectedArgs vv
 
 -- Primitive function `symbol?` predicate
@@ -156,24 +155,24 @@ isSymbol e =  throwError $ UnexpectedArgs e
 -- Primitive function `pair?` predicate
 -- TODO
 isPair :: [Val] -> EvalState Val
-isPair [x] = return . Boolean $ case flattenList x of
-  List x -> not (length x == 0)
-  DottedList ys y -> True
-  _ -> False
+isPair [Number x] = case flattenList x of List [] -> return (Boolean False)
+                                   List _ -> return (Boolean True)
+                                   DottedList _ _ -> return (Boolean True)
+                                   _ -> return (Boolean False)
 isPair xx = throwError $ UnexpectedArgs xx
 
 -- Primitive function `number?` predicate
 -- TODO
 isNumber :: [Val] -> EvalState Val
-isNumber [Number _] = return $ Boolean True
-isNumber [_] = return $ Boolean False
+isNumber [Number x] = case x of Number _ -> return (Boolean True)
+                         _ -> return (Boolean False)
 isNumber vv = throwError $ UnexpectedArgs vv
 
 -- Primitive function `boolean?` predicate
 -- TODO
 isBoolean :: [Val] -> EvalState Val
-isBoolean [Boolean _] = return $ Boolean True
-isBoolean [_] = return $ Boolean False
+isBoolean [Number x] = case x of Boolean _ -> return (Boolean True)
+                          _ -> return (Boolean False)
 isBoolean vv = throwError $ UnexpectedArgs vv
 
 -- Primitive function `null?` predicate
@@ -181,9 +180,8 @@ isBoolean vv = throwError $ UnexpectedArgs vv
 -- Note: Think about what's equivalent
 -- TODO
 isNull :: [Val] -> EvalState Val
-isNull [x] =  return . Boolean $ case flattenList x of
-                            List x -> (length x == 0)
-                            _      -> False
+isNull [Number x] =  case x of List [] -> return (Boolean True)
+                       _ -> return (Boolean False)
 isNull vv = throwError $ UnexpectedArgs vv
 
 --- ### Runtime
