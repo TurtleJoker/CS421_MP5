@@ -28,10 +28,17 @@ repl env = do
       case runExcept $ runStateT (eval expr) env of   -- Eval
         Left err -> print err
         -- TODO:
-        Right (Void, newEnv) -> repl newEnv           -- If return value is void, loop with new env without printing
-        Right (val, newEnv) -> do                     -- Insert line here: Otherwise, print and loop with new env
-          print val
-          repl newEnv
+        -- Insert line here: If return value is void,
+        --                    loop with new env without printing
+        Right (ret, n_env) -> case ret of
+            Void    -> repl n_env
+        -- Insert line here: Otherwise, print and loop with new env
+            otherwise       -> do   print ret
+                                    repl n_env
+        -- The following line may be removed when you're done implementing
+        --  the cases above:
+        _ -> print "Error in Main.hs: Finish implementing repl"
+  repl env                                            -- Loop with old env
 
 main :: IO ()
 main = repl runtime
