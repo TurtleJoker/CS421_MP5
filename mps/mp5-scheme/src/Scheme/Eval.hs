@@ -183,13 +183,17 @@ apply :: Val -> [Val] -> EvalState Val
   -- Function
     -- TODO: implement function application
     -- Use do-notation!
-    apply (Func fmls body cenv) args | length fmls == length args = do 
-      env <- get
-      modify $ H.union cenv
-      mapM_ (\(k,v)-> modify (H.insert k v)) (zip fmls args)
-      val <- eval body
-      put env
-      return val
+    apply (Func fmls body cenv) args
+      | length fmls == length args = 
+          doBlock env cenv fmls args body
+      where 
+        doBlock env cenv fmls args body = do
+          env <- get
+          modify $ H.union cenv
+          mapM_ (\(k,v)-> modify (H.insert k v)) (zip fmls args)
+          val <- eval body
+          put env
+          return val
 
   -- Macro
     -- TODO: implement macro evaluation
