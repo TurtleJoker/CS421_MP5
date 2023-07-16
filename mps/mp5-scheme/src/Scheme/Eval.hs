@@ -198,13 +198,14 @@ apply :: Val -> [Val] -> EvalState Val
   -- Macro
     -- TODO: implement macro evaluation
     -- Use do-notation!
-    apply (Macro fmls body) | length fmls == length args = 
-      do env <- get
-         mapM_ (\(k,v)-> modify (H.insert k v)) (zip fmls args)
-         val1 <- eval body
-         put env
-         val2 <- eval val1
-         return val2
+    apply (Macro fmls body) args
+      | length fmls == length args = do
+          env <- get
+          mapM_ (\(k,v)-> modify (H.insert k v)) (zip fmls args)
+          val1 <- eval body
+          put env
+          val2 <- eval val1
+          return val2
 
   -- Primitive
 apply (PrimFunc p) args =
