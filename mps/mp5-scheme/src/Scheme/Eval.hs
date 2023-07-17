@@ -69,11 +69,11 @@ eval v@(Boolean _) = return v -- Booleans evaluate to themselves
 
 -- Symbol evaluates to the value bound to it
 -- TODO
-eval (Symbol sym) = 
-    do env <- get
-       case H.lookup sym env of
-         Just val -> return val
-         Nothing  -> throwError $ UnboundVar sym
+eval (Symbol sym) = do
+  env <- get
+  case H.lookup sym env of
+    Just val -> return val
+    Nothing -> throwError $ UndefSymbolError sym
 
 -- Function closure is also self-evaluating
 eval v@(Func _ _ _) = return v
@@ -194,30 +194,28 @@ apply :: Val -> [Val] -> EvalState Val
   -- Function
     -- TODO: implement function application
     -- Use do-notation!
-apply (Func params body closure) args = 
-    if length params /= length args then
-        throwError $ NumArgs (length params) args
-    else
-        do env <- get
-           argVals <- mapM eval args
-           put $ H.union (H.fromList $ zip params argVals) closure
-           result <- eval body
-           put env
-           return result
+apply (Func params body closure) args = do
+  when (length params /= length args) $ throwError $ UnexpectedArgs args
+  oldEnv <- get
+  let newBindings = H.fromList $ zip params args
+      newEnv = newBindings `H.union` closure
+  put newEnv
+  result <- eval body
+  put oldEnv
+  return result
 
   -- Macro
     -- TODO: implement macro evaluation
     -- Use do-notation!
-apply (Macro params body) args = 
-    if length params /= length args then
-        throwError $ NumArgs (length params) args
-    else
-        do argVals <- mapM eval args
-           env <- get
-           put $ H.union (H.fromList $ zip params argVals) env
-           result <- eval body
-           put env
-           result >>= eval
+apply (Macro params body) args = do
+  when (length params /= length args) $ throwError $ UnexpectedArgs args
+  oldEnv <- get
+  let newBindings = H.fromList $ zip params args
+  put $ newBindings `H.union` oldEnv
+  expanded <- eval body
+  put oldEnv
+  result <- eval expanded
+  return result
            
   -- Primitive
 apply (PrimFunc p) args =
