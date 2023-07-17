@@ -69,10 +69,11 @@ eval v@(Boolean _) = return v
 
 -- Symbol evaluates to the value bound to it
 -- TODO
-eval (Symbol sym) = do env <- get
-                       case H.lookup sym env of
-                                Just v -> return v
-                                _ -> throwError $ UndefSymbolError sym
+eval (Symbol sym) = do
+  env <- get
+  case H.lookup sym env of
+    Just val -> return val
+    Nothing -> throwError $ UndefSymbolError sym
 
 -- Function closure is also self-evaluating
 eval v@(Func _ _ _) = return v
@@ -102,7 +103,7 @@ eval expr@(Pair v1 v2) = case flattenList expr of
     -- unquote (illegal at surface evaluation)
     -- TODO: since surface-level `unquote` is illegal, all you need to do is
     -- to throw a diagnostic
-    evalList [Symbol "unquote", e] = throwError $ UnquoteNotInQuasiquote e
+    evalList [Symbol "unquote", _] = throwError $ UnquoteNotInQuasiquote expr
 
     -- quasiquote
     evalList [Symbol "quasiquote", e] = evalQuasi 1 e where
@@ -120,30 +121,31 @@ eval expr@(Pair v1 v2) = case flattenList expr of
 
     -- cond
     -- TODO: Handle `cond` here. Use pattern matching to match the syntax
-    evalList ((Symbol "cond"):pairs) = case pairs of [] -> invalidSpecialForm "cond"
-                                                     _ -> mapM getListOf2 pairs >>= evalCond
-                                                                  where evalCond [] = return Void
-                                                                        evalCond [(Symbol "else",e)] = eval e
-                                                                        evalCond ((Symbol "else",_):_) = invalidSpecialForm "cond"
-                                                                        evalCond ((c,e):ces) = eval c >>= \cond-> case cond of Boolean False -> evalCond ces
-                                                                                                                               _ -> eval e 
-
+    evalList ((Symbol "cond") : xs) = foldM tryEval Void xs where
+      tryEval _ (Pair cond (Pair result Nil)) = do
+        condVal <- eval cond
+        case condVal of
+          Boolean False -> return Void
+          _ -> eval result
+      tryEval _ _ = invalidSpecialForm "cond"
+  
     -- let
     -- TODO: Handle `let` here. Use pattern matching to match the syntax
-    evalList [(Symbol "let"),(List xes),body] = 
-      do env <- get
-         nxes <- mapM getBinding xes
-         mapM_ (\(k,v)->modify (H.insert k v)) nxes
-         val <- eval body
-         put env 
-         return val
+    evalList [Symbol "let", Pair bindings body] = do
+      newBindings <- mapM getBinding (toList bindings)
+      oldEnv <- get
+      let newEnv = H.fromList newBindings `H.union` oldEnv
+      put newEnv
+      res <- eval body
+      put oldEnv
+      return res
 
     -- lambda
     -- TODO: Handle `lambda` here. Use pattern matching to match the syntax
-    evalList [Symbol "lambda", List args, body] =
-      do env <- get
-         val <- (\argVal -> Func argVal body env) <$> mapM getSym args
-         return val
+    evalList [Symbol "lambda", Pair args body] = do
+      env <- get
+      argNames <- mapM getSym (toList args)
+      return $ Func argNames body env
 
     -- define function
     evalList [Symbol "define", List (Symbol fname : args), body] =
@@ -155,18 +157,18 @@ eval expr@(Pair v1 v2) = case flattenList expr of
     -- define variable
     -- TODO: Handle `define` for variables here. Use pattern matching
     -- to match the syntax
-    evalList [Symbol "define", Symbol var , e] =
-      do val <- eval e 
-         modify $ H.insert var val
-         return Void
+    evalList [Symbol "define", Symbol var, expr] = do
+      val <- eval expr
+      modify (H.insert var val)
+      return Void
 
     -- define-macro
     -- TODO: Handle `define-macro` here. Use pattern matching to match
     -- the syntax
-    evalList [Symbol "define-macro",List ((Symbol fname):args),body] = 
-      do val <- (\argVal -> Macro argVal body) <$> mapM getSym args
-         modify $ H.insert fname val
-         return Void
+    evalList [Symbol "define-macro", Pair (Symbol name) (Pair args Nil), body] = do
+      argNames <- mapM getSym (toList args)
+      modify (H.insert name $ Macro argNames body)
+      return Void
 
     -- invalid use of keyword, throw a diagnostic
     evalList (Symbol sym : _) | elem sym keywords = invalidSpecialForm sym
@@ -183,22 +185,28 @@ apply :: Val -> [Val] -> EvalState Val
   -- Function
     -- TODO: implement function application
     -- Use do-notation!
-    apply (Func fmls body cenv) args
-      | length fmls == length args = 
-          doBlock env cenv fmls args body
-      where 
-        doBlock env cenv fmls args body = do
-          env <- get
-          modify $ H.union cenv
-          mapM_ (\(k,v)-> modify (H.insert k v)) (zip fmls args)
-          val <- eval body
-          put env
-          return val
+    apply (Func params body closure) args = do
+      when (length params /= length args) $ throwError $ UnexpectedArgs args
+      oldEnv <- get
+      let newBindings = H.fromList $ zip params args
+          newEnv = newBindings `H.union` closure
+      put newEnv
+      result <- eval body
+      put oldEnv
+      return result
 
   -- Macro
     -- TODO: implement macro evaluation
     -- Use do-notation!
-
+    apply (Macro params body) args = do
+      when (length params /= length args) $ throwError $ UnexpectedArgs args
+      oldEnv <- get
+      let newBindings = H.fromList $ zip params args
+      put $ newBindings `H.union` oldEnv
+      expanded <- eval body
+      put oldEnv
+      result <- eval expanded
+      return result
 
   -- Primitive
 apply (PrimFunc p) args =
