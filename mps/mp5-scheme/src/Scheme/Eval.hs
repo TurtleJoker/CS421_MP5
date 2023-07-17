@@ -103,8 +103,8 @@ eval expr@(Pair v1 v2) = case flattenList expr of
     -- unquote (illegal at surface evaluation)
     -- TODO: since surface-level `unquote` is illegal, all you need to do is
     -- to throw a diagnostic
-    evalList [Symbol "unquote", _] = throwError $ UnquoteNotInQuasiquote
-
+    evalList [Symbol "unquote", _] = throwError $ UnquoteNotInQuasiquote expr
+    
     -- quasiquote
     evalList [Symbol "quasiquote", e] = evalQuasi 1 e where
       evalQuasi :: Int -> Val -> EvalState Val
