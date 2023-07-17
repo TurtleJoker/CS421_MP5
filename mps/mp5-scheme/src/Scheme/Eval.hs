@@ -185,28 +185,27 @@ apply :: Val -> [Val] -> EvalState Val
   -- Function
     -- TODO: implement function application
     -- Use do-notation!
-    apply (Func params body closure) args = do
-      when (length params /= length args) $ throwError $ UnexpectedArgs args
-      oldEnv <- get
-      let newBindings = H.fromList $ zip params args
-          newEnv = newBindings `H.union` closure
-      put newEnv
-      result <- eval body
-      put oldEnv
-      return result
+apply (Func params body closure) args = do
+  when (length params /= length args) $ throwError $ UnexpectedArgs args
+  oldEnv <- get
+  let newBindings = H.fromList $ zip params (map Value args)  -- wrap args in Value
+      newEnv = newBindings `H.union` closure
+  put newEnv
+  result <- eval body
+  put oldEnv
+  return result
 
   -- Macro
     -- TODO: implement macro evaluation
     -- Use do-notation!
-    apply (Macro params body) args = do
-      when (length params /= length args) $ throwError $ UnexpectedArgs args
-      oldEnv <- get
-      let newBindings = H.fromList $ zip params args
-      put $ newBindings `H.union` oldEnv
-      expanded <- eval body
-      put oldEnv
-      result <- eval expanded
-      return result
+apply (Macro params body) args = do
+  when (length params /= length args) $ throwError $ UnexpectedArgs args
+  oldEnv <- get
+  let newBindings = H.fromList $ zip params (map Value args) -- wrap args in Value
+  put $ newBindings `H.union` oldEnv
+  expanded <- eval body
+  put oldEnv
+  eval expanded  -- directly evaluate the expanded form
 
   -- Primitive
 apply (PrimFunc p) args =
