@@ -128,7 +128,7 @@ eval expr@(Pair v1 v2) = case flattenList expr of
           Boolean False -> return Void
           _ -> eval result
       tryEval _ _ = invalidSpecialForm "cond"
-  
+
     -- let
     -- TODO: Handle `let` here. Use pattern matching to match the syntax
     evalList [Symbol "let", Pair bindings body] = do
@@ -148,9 +148,10 @@ eval expr@(Pair v1 v2) = case flattenList expr of
       return $ Func argNames body env
 
     -- define function
-    evalList [Symbol "define", List (Symbol fname : args), body] =
+    evalList [Symbol "define", Pair (Symbol fname) args, body] =
       do env <- get
-         val <- (\argVal -> Func argVal body env) <$> mapM getSym args
+         argList <- getList args
+         val <- (\argVal -> Func argVal body env) <$> mapM getSym argList
          modify $ H.insert fname val
          return Void
 
