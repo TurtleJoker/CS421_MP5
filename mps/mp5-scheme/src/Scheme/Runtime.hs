@@ -95,7 +95,8 @@ append vv = throwError $ UnexpectedArgs vv
 -- Examples:
 --   (eval '(+ 1 2 3))  => 6
 evalPrim :: [Val] -> EvalState Val
-evalPrim [Number x] = eval x
+evalPrim [expr] = eval expr
+evalPrim vv = throwError $ UnexpectedArgs vv
 
 -- Primitive function `=`, throwing type error for mismatch
 -- `=` is a comparison operator for numbers and booleans
@@ -141,10 +142,10 @@ eq (x:xs) = return $ Boolean $ foldl (eq' x) True xs where
 -- or an empty list (null)
 -- TODO
 isList :: [Val] -> EvalState Val
-isList [Number x] = case flattenList x of List _ -> return (Boolean True)
-                                   _ -> return (Boolean False)
-                                   
-isList vv = throwError $ UnexpectedArgs vv
+isList [Nil] = return $ Boolean True
+isList [Pair _ rest] = isList [rest]
+isList [_] = return $ Boolean False
+isList e =  throwError $ UnexpectedArgs e
 
 -- Primitive function `symbol?` predicate
 isSymbol :: [Val] -> EvalState Val
@@ -155,34 +156,33 @@ isSymbol e =  throwError $ UnexpectedArgs e
 -- Primitive function `pair?` predicate
 -- TODO
 isPair :: [Val] -> EvalState Val
-isPair [Number x] = case flattenList x of List [] -> return (Boolean False)
-                                   List _ -> return (Boolean True)
-                                   DottedList _ _ -> return (Boolean True)
-                                   _ -> return (Boolean False)
-isPair xx = throwError $ UnexpectedArgs xx
+isPair [Pair _ _] = return $ Boolean True
+isPair [_] = return $ Boolean False
+isPair e =  throwError $ UnexpectedArgs e
 
 -- Primitive function `number?` predicate
 -- TODO
 isNumber :: [Val] -> EvalState Val
-isNumber [Number x] = case x of Number _ -> return (Boolean True)
-                         _ -> return (Boolean False)
-isNumber vv = throwError $ UnexpectedArgs vv
+isNumber [Number _] = return $ Boolean True
+isNumber [_] = return $ Boolean False
+isNumber e =  throwError $ UnexpectedArgs e
 
 -- Primitive function `boolean?` predicate
 -- TODO
 isBoolean :: [Val] -> EvalState Val
-isBoolean [Number x] = case x of Boolean _ -> return (Boolean True)
-                          _ -> return (Boolean False)
-isBoolean vv = throwError $ UnexpectedArgs vv
+isBoolean [Boolean _] = return $ Boolean True
+isBoolean [_] = return $ Boolean False
+isBoolean e =  throwError $ UnexpectedArgs e
 
 -- Primitive function `null?` predicate
 -- An empty list or its *equivalent* value is null
 -- Note: Think about what's equivalent
 -- TODO
 isNull :: [Val] -> EvalState Val
-isNull [Number x] =  case x of List [] -> return (Boolean True)
-                       _ -> return (Boolean False)
-isNull vv = throwError $ UnexpectedArgs vv
+isNull [Nil] = return $ Boolean True
+isNull [Pair _ _] = return $ Boolean False
+isNull [_] = return $ Boolean False
+isNull e =  throwError $ UnexpectedArgs e
 
 --- ### Runtime
 
@@ -208,12 +208,11 @@ runtime = H.fromList [ ("+", liftIntVargOp (+) 0)
                      , ("list", PrimFunc list)
                      , ("append", PrimFunc append)
                      , ("symbol?", PrimFunc isSymbol)
+                     -- TODO: Insert more runtime bindings here
                      , ("eval", PrimFunc evalPrim)
-                     , ("apply", PrimFunc applyPrim)
+                     , ("list?", PrimFunc isList)
                      , ("pair?", PrimFunc isPair)
                      , ("number?", PrimFunc isNumber)
                      , ("boolean?", PrimFunc isBoolean)
                      , ("null?", PrimFunc isNull)
-                     , ("!=", liftCompOp (/=))
-                     , ("list?", PrimFunc isList)
                      ]
