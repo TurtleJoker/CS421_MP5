@@ -142,8 +142,8 @@ eq (x:xs) = return $ Boolean $ foldl (eq' x) True xs where
 -- or an empty list (null)
 -- TODO
 isList :: [Val] -> EvalState Val
+isList [Pair _ _] = return $ Boolean True
 isList [Nil] = return $ Boolean True
-isList [Pair _ rest] = isList [rest]
 isList [_] = return $ Boolean False
 isList e =  throwError $ UnexpectedArgs e
 
@@ -209,10 +209,10 @@ runtime = H.fromList [ ("+", liftIntVargOp (+) 0)
                      , ("append", PrimFunc append)
                      , ("symbol?", PrimFunc isSymbol)
                      -- TODO: Insert more runtime bindings here
-                     , ("eval", PrimFunc evalPrim)
                      , ("list?", PrimFunc isList)
                      , ("pair?", PrimFunc isPair)
                      , ("number?", PrimFunc isNumber)
                      , ("boolean?", PrimFunc isBoolean)
                      , ("null?", PrimFunc isNull)
+                     , ("eval", PrimFunc evalPrim)
                      ]
